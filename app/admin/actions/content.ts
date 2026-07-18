@@ -103,25 +103,18 @@ export async function saveEventAction(_: AdminActionState, formData: FormData): 
   const eventId = result.data.id;
   const headlinerBandId = optionalValue(formData, "headliner_band_id");
   const supportBandIds = formData.getAll("support_band_ids").map(String).filter(Boolean);
-  const sponsorIds = formData.getAll("sponsor_ids").map(String).filter(Boolean);
 
-  const [{ error: lineupDeleteError }, { error: sponsorsDeleteError }] = await Promise.all([
-    supabase!.from("event_bands").delete().eq("event_id", eventId),
-    supabase!.from("event_sponsors").delete().eq("event_id", eventId),
-  ]);
-  if (lineupDeleteError || sponsorsDeleteError) return { error: "El evento se guardó, pero no se pudieron actualizar sus relaciones." };
+  const { error: lineupDeleteError } = await supabase!.from("event_bands").delete().eq("event_id", eventId);
+  if (lineupDeleteError) return { error: "El evento se guardó, pero no se pudo actualizar el line-up." };
 
   const lineupRows: Database["public"]["Tables"]["event_bands"]["Insert"][] = [
     ...(headlinerBandId ? [{ event_id: eventId, band_id: headlinerBandId, role: "headliner" as const, sort_order: 0 }] : []),
     ...supportBandIds.map((bandId, index) => ({ event_id: eventId, band_id: bandId, role: "support" as const, sort_order: index + 1 })),
   ];
-  const sponsorRows = sponsorIds.map((sponsorId, index) => ({ event_id: eventId, sponsor_id: sponsorId, sort_order: index }));
-
-  const [lineupResult, sponsorsResult] = await Promise.all([
-    lineupRows.length ? supabase!.from("event_bands").insert(lineupRows) : Promise.resolve({ error: null }),
-    sponsorRows.length ? supabase!.from("event_sponsors").insert(sponsorRows) : Promise.resolve({ error: null }),
-  ]);
-  if (lineupResult.error || sponsorsResult.error) return { error: "El evento se guardó, pero faltaron bandas o sponsors." };
+  const lineupResult = lineupRows.length
+    ? await supabase!.from("event_bands").insert(lineupRows)
+    : { error: null };
+  if (lineupResult.error) return { error: "El evento se guardó, pero faltaron bandas en el line-up." };
 
   revalidatePath("/");
   revalidatePath("/opengraph-image");

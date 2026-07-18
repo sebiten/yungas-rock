@@ -6,15 +6,12 @@ import type { Database } from "@/lib/supabase/database.types";
 
 type EventRow = Database["public"]["Tables"]["events"]["Row"];
 type BandRow = Database["public"]["Tables"]["bands"]["Row"];
-type SponsorRow = Database["public"]["Tables"]["sponsors"]["Row"];
 
 interface EventFormProps {
   event?: EventRow;
   bands: BandRow[];
-  sponsors: SponsorRow[];
   selectedHeadlinerId?: string;
   selectedSupportIds?: string[];
-  selectedSponsorIds?: string[];
 }
 
 const initialState: AdminActionState = { error: "" };
@@ -22,10 +19,8 @@ const initialState: AdminActionState = { error: "" };
 export function EventForm({
   event,
   bands,
-  sponsors,
   selectedHeadlinerId,
   selectedSupportIds = [],
-  selectedSponsorIds = [],
 }: EventFormProps) {
   const [state, action, pending] = useActionState(saveEventAction, initialState);
   const eventDate = event?.event_date ? event.event_date.slice(0, 16) : "";
@@ -76,11 +71,10 @@ export function EventForm({
       </section>
 
       <section className="admin-form-section">
-        <div className="admin-form-heading"><span>05</span><div><h2>Line-up y sponsors</h2><p>Elegí contenido previamente cargado.</p></div></div>
+        <div className="admin-form-heading"><span>05</span><div><h2>Line-up</h2><p>Elegí las bandas previamente cargadas.</p></div></div>
         <div className="admin-form-grid">
           <label>Headliner<select name="headliner_band_id" defaultValue={selectedHeadlinerId || ""}><option value="">Usar artista principal</option>{bands.map((band) => <option value={band.id} key={band.id}>{band.name}</option>)}</select></label>
           <fieldset><legend>Bandas soporte</legend>{bands.map((band) => <label className="admin-check" key={band.id}><input type="checkbox" name="support_band_ids" value={band.id} defaultChecked={selectedSupportIds.includes(band.id)} />{band.name}</label>)}</fieldset>
-          <fieldset className="admin-field-wide"><legend>Sponsors</legend><div className="admin-check-grid">{sponsors.map((sponsor) => <label className="admin-check" key={sponsor.id}><input type="checkbox" name="sponsor_ids" value={sponsor.id} defaultChecked={selectedSponsorIds.includes(sponsor.id)} />{sponsor.name}</label>)}</div></fieldset>
         </div>
       </section>
 

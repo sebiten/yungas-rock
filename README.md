@@ -7,7 +7,7 @@ Sitio público y panel de contenidos para administrar eventos sin modificar el d
 - Eventos, estados y evento destacado de portada.
 - Artista principal, textos, fecha, lugar, flyer e imagen principal.
 - Ticketera externa, estado de entradas y precio visible.
-- Line-up y sponsors asociados a cada fecha.
+- Line-up asociado a cada fecha y sponsors globales para todo el sitio.
 - Textos de Instagram y preview de WhatsApp.
 - Bandas, sponsors y postulaciones recibidas desde la web.
 

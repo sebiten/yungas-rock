@@ -4,6 +4,26 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { demoContent, preparationEvent } from "./demo";
 import type { LandingContent, PublicBand, PublicEvent, PublicSponsor } from "./types";
 
+async function getGlobalSponsors(supabase: Awaited<ReturnType<typeof createClient>>): Promise<PublicSponsor[]> {
+  const { data, error } = await supabase
+    .from("sponsors")
+    .select("*")
+    .eq("is_active", true)
+    .order("name");
+
+  if (error) throw error;
+  if (!data.length) return demoContent.sponsors;
+
+  return data.map((sponsor, sortOrder) => ({
+    id: sponsor.id,
+    name: sponsor.name,
+    logoUrl: sponsor.logo_url,
+    websiteUrl: sponsor.website_url,
+    format: "wide" as const,
+    sortOrder,
+  }));
+}
+
 function mapEvent(event: Awaited<ReturnType<typeof getPublishedEventRow>>): PublicEvent {
   if (!event) return preparationEvent;
   return {
@@ -51,26 +71,23 @@ export const getLandingContent = cache(async (): Promise<LandingContent> => {
   try {
     const supabase = await createClient();
     const eventRow = await getPublishedEventRow();
-    if (!eventRow) return { event: preparationEvent, bands: [], sponsors: [], source: "supabase" };
+    const sponsors = await getGlobalSponsors(supabase);
+    if (!eventRow) return { event: preparationEvent, bands: [], sponsors, source: "supabase" };
 
-    const [{ data: eventBands, error: bandsRelationError }, { data: eventSponsors, error: sponsorsRelationError }] =
-      await Promise.all([
-        supabase.from("event_bands").select("band_id, role, sort_order").eq("event_id", eventRow.id).order("sort_order"),
-        supabase.from("event_sponsors").select("sponsor_id, sort_order").eq("event_id", eventRow.id).order("sort_order"),
-      ]);
+    const { data: eventBands, error: bandsRelationError } = await supabase
+      .from("event_bands")
+      .select("band_id, role, sort_order")
+      .eq("event_id", eventRow.id)
+      .order("sort_order");
 
     if (bandsRelationError) throw bandsRelationError;
-    if (sponsorsRelationError) throw sponsorsRelationError;
 
     const bandIds = eventBands.map((item) => item.band_id);
-    const sponsorIds = eventSponsors.map((item) => item.sponsor_id);
-    const [{ data: bandRows, error: bandsError }, { data: sponsorRows, error: sponsorsError }] = await Promise.all([
-      bandIds.length ? supabase.from("bands").select("*").in("id", bandIds) : Promise.resolve({ data: [], error: null }),
-      sponsorIds.length ? supabase.from("sponsors").select("*").in("id", sponsorIds) : Promise.resolve({ data: [], error: null }),
-    ]);
+    const { data: bandRows, error: bandsError } = bandIds.length
+      ? await supabase.from("bands").select("*").in("id", bandIds)
+      : { data: [], error: null };
 
     if (bandsError) throw bandsError;
-    if (sponsorsError) throw sponsorsError;
 
     const bands: PublicBand[] = eventBands.flatMap((relation) => {
       const band = bandRows?.find((item) => item.id === relation.band_id);
@@ -84,20 +101,6 @@ export const getLandingContent = cache(async (): Promise<LandingContent> => {
             instagramUrl: band.instagram_url,
             musicUrl: band.music_url,
             role: relation.role,
-            sortOrder: relation.sort_order,
-          }]
-        : [];
-    });
-
-    const sponsors: PublicSponsor[] = eventSponsors.flatMap((relation) => {
-      const sponsor = sponsorRows?.find((item) => item.id === relation.sponsor_id);
-      return sponsor
-        ? [{
-            id: sponsor.id,
-            name: sponsor.name,
-            logoUrl: sponsor.logo_url,
-            websiteUrl: sponsor.website_url,
-            format: "wide" as const,
             sortOrder: relation.sort_order,
           }]
         : [];
@@ -122,23 +125,17 @@ export const getPublicEventBySlug = cache(async (slug: string): Promise<LandingC
       .maybeSingle();
     if (error || !eventRow) return null;
 
-    const [{ data: eventBands }, { data: eventSponsors }] = await Promise.all([
+    const [{ data: eventBands }, sponsors] = await Promise.all([
       supabase.from("event_bands").select("band_id, role, sort_order").eq("event_id", eventRow.id).order("sort_order"),
-      supabase.from("event_sponsors").select("sponsor_id, sort_order").eq("event_id", eventRow.id).order("sort_order"),
+      getGlobalSponsors(supabase),
     ]);
     const bandIds = eventBands?.map((item) => item.band_id) || [];
-    const sponsorIds = eventSponsors?.map((item) => item.sponsor_id) || [];
-    const [{ data: bandRows }, { data: sponsorRows }] = await Promise.all([
-      bandIds.length ? supabase.from("bands").select("*").in("id", bandIds) : Promise.resolve({ data: [] }),
-      sponsorIds.length ? supabase.from("sponsors").select("*").in("id", sponsorIds) : Promise.resolve({ data: [] }),
-    ]);
+    const { data: bandRows } = bandIds.length
+      ? await supabase.from("bands").select("*").in("id", bandIds)
+      : { data: [] };
     const bands: PublicBand[] = (eventBands || []).flatMap((relation) => {
       const band = bandRows?.find((item) => item.id === relation.band_id);
       return band ? [{ id: band.id, name: band.name, city: band.city, bio: band.bio, imageUrl: band.image_url, instagramUrl: band.instagram_url, musicUrl: band.music_url, role: relation.role, sortOrder: relation.sort_order }] : [];
-    });
-    const sponsors: PublicSponsor[] = (eventSponsors || []).flatMap((relation) => {
-      const sponsor = sponsorRows?.find((item) => item.id === relation.sponsor_id);
-      return sponsor ? [{ id: sponsor.id, name: sponsor.name, logoUrl: sponsor.logo_url, websiteUrl: sponsor.website_url, format: "wide" as const, sortOrder: relation.sort_order }] : [];
     });
     return { event: mapEvent(eventRow), bands, sponsors, source: "supabase" };
   } catch {
