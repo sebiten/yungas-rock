@@ -368,12 +368,32 @@ button {
   isolation: isolate;
 }
 
+.event-poster-image {
+  z-index: 0;
+  object-fit: cover;
+  opacity: 0.34;
+}
+
 .event-poster::after {
-  content: "ANIMAL";
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(12, 12, 11, 0.08), rgba(12, 12, 11, 0.82));
+  content: "";
+  pointer-events: none;
+}
+
+.event-poster > :not(.event-poster-image) {
+  position: relative;
+  z-index: 2;
+}
+
+.event-poster::before {
+  content: "YUNGAS";
   position: absolute;
   right: -44px;
   bottom: 26%;
-  z-index: -1;
+  z-index: 1;
   color: transparent;
   font-family: var(--font-display), sans-serif;
   font-size: clamp(130px, 18vw, 300px);
@@ -597,6 +617,26 @@ button {
   font-style: normal;
   font-weight: 700;
   text-transform: uppercase;
+}
+
+.confirmed-slot {
+  cursor: default;
+  background: linear-gradient(145deg, rgba(242, 106, 0, 0.11), transparent 68%);
+}
+
+.confirmed-slot::after {
+  content: "✓";
+}
+
+.confirmed-slot:hover {
+  background: linear-gradient(145deg, rgba(242, 106, 0, 0.16), transparent 68%);
+  color: var(--paper);
+  transform: none;
+}
+
+.confirmed-slot:hover span,
+.confirmed-slot:hover i {
+  color: var(--orange);
 }
 
 .application-section {
@@ -904,23 +944,33 @@ button {
 .sponsor-track {
   display: flex;
   width: max-content;
+  min-width: max-content;
+  flex-wrap: nowrap;
   animation: sponsors-roll 32s linear infinite;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
   will-change: transform;
 }
 
 .sponsor-set {
   display: flex;
-  gap: 16px;
-  padding-right: 16px;
+  width: max-content;
+  min-width: max-content;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
 }
 
 .sponsor-card {
   position: relative;
   display: grid;
   flex: 0 0 310px;
+  width: 310px;
+  min-width: 310px;
+  max-width: 310px;
   min-height: 280px;
   grid-template-rows: 1fr auto;
   gap: 16px;
+  margin-right: 16px;
   padding: 28px 28px 18px;
   overflow: hidden;
   border: 1px solid #2d2c29;
@@ -948,15 +998,21 @@ button {
 .sponsor-logo {
   position: relative;
   min-height: 196px;
+  overflow: hidden;
+  isolation: isolate;
 }
 
 .sponsor-logo img {
+  display: block;
   object-fit: contain;
   filter: drop-shadow(0 14px 18px rgba(0, 0, 0, 0.26));
 }
 
 .sponsor-card-wide {
   flex-basis: 380px;
+  width: 380px;
+  min-width: 380px;
+  max-width: 380px;
 }
 
 .sponsor-card-wide .sponsor-logo {
@@ -1140,6 +1196,13 @@ footer {
 .submit-button {
   width: 100%;
   margin-top: 8px;
+}
+
+.form-error {
+  margin: -6px 0 0;
+  color: #ff9b57;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .submit-button:disabled {
@@ -1393,7 +1456,7 @@ footer {
     padding: 28px 20px;
   }
 
-  .event-poster::after {
+  .event-poster::before {
     right: -20px;
     font-size: 130px;
   }
@@ -1470,12 +1533,18 @@ footer {
 
   .sponsor-card {
     flex-basis: 238px;
+    width: 238px;
+    min-width: 238px;
+    max-width: 238px;
     min-height: 226px;
     padding: 22px 20px 16px;
   }
 
   .sponsor-card-wide {
     flex-basis: 286px;
+    width: 286px;
+    min-width: 286px;
+    max-width: 286px;
   }
 
   .sponsor-logo {

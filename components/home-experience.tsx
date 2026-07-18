@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 import { FormEvent, useEffect, useState } from "react";
+import { submitBandApplication } from "@/app/actions/public";
+import type { LandingContent, PublicBand } from "@/lib/content/types";
 
 interface ApplicationData {
   bandName: string;
@@ -17,24 +19,55 @@ const initialApplication: ApplicationData = {
   musicLink: "",
 };
 
-const sponsors = [
-  { name: "El Nacho", image: "/sponsors/el-nacho.png", format: "square" },
-  { name: "Diseños Mora", image: "/sponsors/disenos-mora.png", format: "square" },
-  { name: "LP Viajes", image: "/sponsors/lp-viajes.png", format: "square" },
-  { name: "New Geor", image: "/sponsors/new-geor.png", format: "wide" },
-  { name: "Capitán Beto", image: "/sponsors/capitan-beto.png", format: "square" },
-  { name: "Alquimia", image: "/sponsors/alquimia.png", format: "square" },
-  { name: "Silvana Morel", image: "/sponsors/silvana-morel.png", format: "wide" },
-  { name: "Aymagón", image: "/sponsors/aymagon.png", format: "wide" },
-  { name: "Rnor Cell", image: "/sponsors/rnor-cell.png", format: "wide" },
-  { name: "Yodas", image: "/sponsors/yodas.png", format: "square" },
-] as const;
+function formatEventDate(value: string | null) {
+  if (!value) return "Próximamente";
+  return new Intl.DateTimeFormat("es-AR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "America/Argentina/Buenos_Aires",
+  }).format(new Date(value));
+}
 
-export function HomeExperience() {
+function ticketLabel(status: LandingContent["event"]["ticketStatus"], price: string | null) {
+  if (status === "available") return price || "Entradas disponibles";
+  if (status === "sold_out") return "Entradas agotadas";
+  if (status === "soon") return "Venta por anunciar";
+  return "Sin venta publicada";
+}
+
+function SupportSlot({ band, position, onApply }: { band?: PublicBand; position: number; onApply: () => void }) {
+  const className = `open-slot slot-${position === 0 ? "one" : "two"}${band ? " confirmed-slot" : ""}`;
+
+  if (band) {
+    return (
+      <article className={className}>
+        <span>Banda soporte</span>
+        <strong>{band.name}</strong>
+        <i>{band.city || "Confirmada"}</i>
+      </article>
+    );
+  }
+
+  return (
+    <button className={className} type="button" onClick={onApply}>
+      <span>Banda soporte</span>
+      <strong>{position === 0 ? "Este lugar puede ser tuyo" : "Traé tu sonido al escenario"}</strong>
+      <i>Postular ahora ↗</i>
+    </button>
+  );
+}
+
+export function HomeExperience({ content }: { content: LandingContent }) {
+  const { event, bands, sponsors } = content;
+  const headliner = bands.find((band) => band.role === "headliner");
+  const supports = bands.filter((band) => band.role === "support").slice(0, 2);
+  const eventDate = formatEventDate(event.eventDate);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isApplicationOpen, setIsApplicationOpen] = useState(false);
   const [application, setApplication] = useState(initialApplication);
   const [formStatus, setFormStatus] = useState<"idle" | "sending" | "sent">("idle");
+  const [formError, setFormError] = useState("");
 
   useEffect(() => {
     document.body.style.overflow = isApplicationOpen ? "hidden" : "";
@@ -49,6 +82,7 @@ export function HomeExperience() {
 
   function openApplication() {
     setFormStatus("idle");
+    setFormError("");
     setIsApplicationOpen(true);
     closeMenus();
   }
@@ -60,7 +94,13 @@ export function HomeExperience() {
   async function handleApplicationSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormStatus("sending");
-    await new Promise((resolve) => window.setTimeout(resolve, 850));
+    setFormError("");
+    const result = await submitBandApplication({ ...application, eventId: content.event.id });
+    if (!result.success) {
+      setFormStatus("idle");
+      setFormError(result.message);
+      return;
+    }
     setFormStatus("sent");
   }
 
@@ -95,33 +135,33 @@ export function HomeExperience() {
       <section className="hero" id="inicio">
         <Image
           className="hero-image"
-          src="/hero-concert.png"
-          alt="Festival de rock al aire libre con luces naranjas y público frente al escenario"
+          src={event.heroImageUrl}
+          alt={`${event.artistName} en Yungas Rock`}
           fill
           sizes="100vw"
           priority
         />
         <div className="hero-scrim" />
         <div className="hero-content">
-          <p className="hero-kicker"><span>Próxima fecha</span> A.N.I.M.A.L. en Jujuy</p>
+          <p className="hero-kicker"><span>{event.eyebrow}</span> {event.artistName} · {event.city}</p>
           <h1>YUNGAS<br /><i>ROCK</i></h1>
-          <p className="hero-copy">La selva también hace ruido. Una noche para vivir el rock del norte.</p>
+          <p className="hero-copy">{event.description}</p>
           <div className="hero-actions">
             <a className="button button-primary" href="#evento">Ver el evento</a>
             <button className="button button-ghost" type="button" onClick={openApplication}>Subí a tu banda</button>
           </div>
         </div>
         <aside className="hero-ticket" aria-label="Información del próximo evento">
-          <span>Show especial</span>
-          <strong>A.N.I.M.A.L.</strong>
-          <p>Fecha y lugar<br />por confirmar</p>
+          <span>{event.eyebrow}</span>
+          <strong>{event.artistName}</strong>
+          <p>{eventDate}<br />{event.venue || event.city}</p>
         </aside>
       </section>
 
       <div className="marquee" aria-hidden="true">
         <div>
-          <span>A.N.I.M.A.L.</span><b>+</b><span>BANDAS DEL NORTE</span><b>+</b><span>JUJUY</span><b>+</b>
-          <span>A.N.I.M.A.L.</span><b>+</b><span>BANDAS DEL NORTE</span><b>+</b><span>JUJUY</span><b>+</b>
+          <span>{event.artistName}</span><b>+</b><span>BANDAS DEL NORTE</span><b>+</b><span>JUJUY</span><b>+</b>
+          <span>{event.artistName}</span><b>+</b><span>BANDAS DEL NORTE</span><b>+</b><span>JUJUY</span><b>+</b>
         </div>
       </div>
 
@@ -132,46 +172,45 @@ export function HomeExperience() {
 
       <section className="event-section" id="evento">
         <div className="event-poster">
+          {event.flyerImageUrl && (
+            <Image className="event-poster-image" src={event.flyerImageUrl} alt={`Flyer de ${event.artistName}`} fill sizes="(max-width: 900px) 100vw, 55vw" />
+          )}
           <div className="poster-number">PRÓXIMO<br />SHOW</div>
           <div className="poster-copy">
             <p>Yungas Rock presenta</p>
-            <h2>A.N.I.M.A.L.</h2>
-            <span>Heavy rock argentino en vivo</span>
+            <h2>{event.artistName}</h2>
+            <span>{event.title}</span>
           </div>
         </div>
         <div className="event-info">
-          <h3>Una fecha que va a sacudir el norte.</h3>
+          <h3>{event.title}</h3>
           <div className="event-facts">
-            <div><span>Cuándo</span><strong>Próximamente</strong></div>
-            <div><span>Dónde</span><strong>Jujuy, Argentina</strong></div>
-            <div><span>Entradas</span><strong>Venta por anunciar</strong></div>
+            <div><span>Cuándo</span><strong>{eventDate}{event.doorsTime ? ` · ${event.doorsTime}` : ""}</strong></div>
+            <div><span>Dónde</span><strong>{event.venue || event.city}</strong></div>
+            <div><span>Entradas</span><strong>{ticketLabel(event.ticketStatus, event.ticketPriceLabel)}</strong></div>
           </div>
-          <p>Seguinos en Instagram para recibir primero la fecha, el lugar y la apertura de entradas.</p>
-          <a className="text-link" href="https://www.instagram.com/yungas.rock/?hl=es" target="_blank" rel="noreferrer">Seguir en Instagram <span>↗</span></a>
+          <p>{event.description}</p>
+          {event.ticketStatus === "available" && event.ticketUrl ? (
+            <a className="text-link" href={event.ticketUrl} target="_blank" rel="noreferrer">Comprar entradas <span>↗</span></a>
+          ) : (
+            <a className="text-link" href="https://www.instagram.com/yungas.rock/?hl=es" target="_blank" rel="noreferrer">Seguir en Instagram <span>↗</span></a>
+          )}
         </div>
       </section>
 
       <section className="lineup section-shell" id="bandas">
         <div className="section-title">
           <p>El escenario</p>
-          <h2>Una banda histórica.<br />Dos lugares por conquistar.</h2>
+          <h2>Una noche.<br />Todo el norte en escena.</h2>
         </div>
         <div className="lineup-grid">
           <article className="headliner-slot">
             <span>Headliner</span>
-            <h3>A.N.I.M.A.L.</h3>
-            <p>Potencia, historia y riffs que marcaron al metal argentino.</p>
+            <h3>{headliner?.name || event.artistName}</h3>
+            <p>{headliner?.bio || event.description}</p>
           </article>
-          <button className="open-slot slot-one" type="button" onClick={openApplication}>
-            <span>Banda soporte</span>
-            <strong>Este lugar puede ser tuyo</strong>
-            <i>Postular ahora ↗</i>
-          </button>
-          <button className="open-slot slot-two" type="button" onClick={openApplication}>
-            <span>Banda soporte</span>
-            <strong>Traé tu sonido al escenario</strong>
-            <i>Postular ahora ↗</i>
-          </button>
+          <SupportSlot band={supports[0]} position={0} onApply={openApplication} />
+          <SupportSlot band={supports[1]} position={1} onApply={openApplication} />
         </div>
       </section>
 
@@ -189,7 +228,7 @@ export function HomeExperience() {
         </div>
       </section>
 
-      <section className="sponsors" aria-labelledby="sponsors-title">
+      {sponsors.length > 0 && <section className="sponsors" aria-labelledby="sponsors-title">
         <div className="sponsors-heading section-shell">
           <div>
             <p>Marcas que hacen ruido con nosotros</p>
@@ -206,7 +245,7 @@ export function HomeExperience() {
                   <article className={`sponsor-card sponsor-card-${sponsor.format}`} key={`${sponsor.name}-${isCopy}`}>
                     <div className="sponsor-logo">
                       <Image
-                        src={sponsor.image}
+                        src={sponsor.logoUrl}
                         alt={isCopy ? "" : `Logo de ${sponsor.name}`}
                         fill
                         sizes="(max-width: 620px) 240px, 320px"
@@ -219,7 +258,7 @@ export function HomeExperience() {
             ))}
           </div>
         </div>
-      </section>
+      </section>}
 
       <section className="organize section-shell">
         <div className="organize-heading">
@@ -235,13 +274,13 @@ export function HomeExperience() {
 
       <section className="location-section">
         <div className="location-map" aria-hidden="true">
-          <span>JUJUY</span>
+          <span>{event.city.split(",")[0].toUpperCase()}</span>
           <b>YUNGAS<br />ROCK</b>
         </div>
         <div className="location-copy">
-          <h2>Nos vemos en Jujuy.</h2>
-          <p>La ubicación exacta y las indicaciones de acceso se publicarán con el anuncio oficial.</p>
-          <span className="location-status">Ubicación por confirmar</span>
+          <h2>{event.venue ? `Nos vemos en ${event.venue}.` : "Nos vemos en Jujuy."}</h2>
+          <p>{event.address || "La ubicación exacta y las indicaciones de acceso se publicarán con el anuncio oficial."}</p>
+          <span className="location-status">{event.venue || "Ubicación por confirmar"}</span>
         </div>
       </section>
 
@@ -257,7 +296,7 @@ export function HomeExperience() {
         </div>
         <div className="footer-note">
           <span>Yungas Rock. Jujuy, Argentina.</span>
-          <span>Demo visual. Contenido sujeto a confirmación.</span>
+          <span>{content.source === "demo" ? "Modo demo. Contenido sujeto a confirmación." : "Contenido administrado por Yungas Rock."}</span>
         </div>
       </footer>
 
@@ -275,14 +314,14 @@ export function HomeExperience() {
               <div className="success-state">
                 <span>Recibido</span>
                 <h2>Tu banda ya está en la lista.</h2>
-                <p>En la versión final, la producción recibirá el material ordenado y podrá responder desde el panel.</p>
+                <p>La producción recibirá el material ordenado y podrá responder desde el panel.</p>
                 <button className="button button-primary" type="button" onClick={() => setIsApplicationOpen(false)}>Cerrar</button>
               </div>
             ) : (
               <>
                 <p className="modal-kicker">Convocatoria bandas soporte</p>
                 <h2 id="application-title">Queremos escuchar lo que hacen.</h2>
-                <p className="modal-intro">Esta es una simulación del formulario que recibiría Yungas Rock.</p>
+                <p className="modal-intro">Compartí los datos principales y un enlace donde podamos escuchar la banda.</p>
                 <form onSubmit={handleApplicationSubmit}>
                   <label>
                     Nombre de la banda
@@ -302,6 +341,7 @@ export function HomeExperience() {
                     Link a música o video
                     <input required type="url" value={application.musicLink} onChange={(event) => updateApplication("musicLink", event.target.value)} placeholder="https://" />
                   </label>
+                  {formError && <p className="form-error" role="alert">{formError}</p>}
                   <button className="button button-primary submit-button" type="submit" disabled={formStatus === "sending"}>
                     {formStatus === "sending" ? "Enviando material..." : "Enviar postulación"}
                   </button>
