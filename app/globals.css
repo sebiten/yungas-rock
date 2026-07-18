@@ -300,11 +300,21 @@ button {
   white-space: nowrap;
 }
 
-.marquee div {
+.marquee > div {
   display: flex;
   width: max-content;
+  min-width: max-content;
+  flex-wrap: nowrap;
   align-items: center;
   animation: marquee 22s linear infinite;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: transform;
+}
+
+.marquee span,
+.marquee b {
+  flex: 0 0 auto;
 }
 
 .marquee span {
@@ -1242,7 +1252,8 @@ footer {
 }
 
 @keyframes marquee {
-  to { transform: translateX(-50%); }
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
 }
 
 @keyframes map-pulse {
@@ -1418,6 +1429,10 @@ footer {
     max-width: 300px;
     font-size: 14px;
     line-height: 2.15;
+  }
+
+  .marquee > div {
+    animation-duration: 18s;
   }
 
   .hero-kicker span {
@@ -1609,6 +1624,11 @@ footer {
 
   .sponsor-track {
     animation-duration: 40s !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  .marquee > div {
+    animation-duration: 24s !important;
     animation-iteration-count: infinite !important;
   }
 }
